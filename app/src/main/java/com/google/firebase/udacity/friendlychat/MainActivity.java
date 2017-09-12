@@ -16,6 +16,7 @@
 package com.google.firebase.udacity.friendlychat;
 
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.v7.app.AppCompatActivity;
 import android.text.Editable;
 import android.text.InputFilter;
@@ -30,6 +31,9 @@ import android.widget.ImageButton;
 import android.widget.ListView;
 import android.widget.ProgressBar;
 
+import com.firebase.ui.auth.AuthUI;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.ChildEventListener;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
@@ -43,6 +47,7 @@ public class MainActivity extends AppCompatActivity {
 
     public static final String ANONYMOUS = "anonymous";
     public static final int DEFAULT_MSG_LENGTH_LIMIT = 1000;
+    public static final int RC_SIGN_IN = 1;
     private static final String TAG = "MainActivity";
     private ListView mMessageListView;
     private MessageAdapter mMessageAdapter;
@@ -56,6 +61,8 @@ public class MainActivity extends AppCompatActivity {
     private FirebaseDatabase mFirebaseDatabase;
     private DatabaseReference mMessagesDatabaseReference;
     private ChildEventListener mChildEventListener;
+    private FirebaseAuth mFirebaseAuth;
+    private FirebaseAuth.AuthStateListener mAuthStateListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,6 +72,8 @@ public class MainActivity extends AppCompatActivity {
         mUsername = ANONYMOUS;
 
         mFirebaseDatabase = FirebaseDatabase.getInstance();
+        mFirebaseAuth = FirebaseAuth.getInstance();
+
         mMessagesDatabaseReference = mFirebaseDatabase.getReference().child("messages");
 
         // Initialize references to views
@@ -120,6 +129,8 @@ public class MainActivity extends AppCompatActivity {
                 mMessagesDatabaseReference.push().setValue(friendlyMessage);
                 // Clear input box
                 mMessageEditText.setText("");
+            }
+        });
 
                 mChildEventListener = new ChildEventListener() {
                     @Override
@@ -150,8 +161,38 @@ public class MainActivity extends AppCompatActivity {
                 };
 
                 mMessagesDatabaseReference.addChildEventListener(mChildEventListener);
+                mAuthStateListener = new FirebaseAuth.AuthStateListener() {
+
+                    @Override
+                    public void onAuthStateChanged(@NonNull FirebaseAuth firebaseAuth) {
+                        FirebaseUser user = firebaseAuth.getCurrentUser();
+                        if (user != null) {
+                            // User is signed in
+                        } else {
+                            // User is signed out
+                            startActivityForResult(
+                                    AuthUI.getInstance()
+                                            .createSignInIntentBuilder()
+                                            .setIsSmartLockEnabled(false)
+                                            .setProviders(
+                                                    AuthUI.GOOGLE_PROVIDER)
+                                            .build(), RC_SIGN_IN
+                            );
+                        }
+                    }
+                };
             }
-        });
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        mFirebaseAuth.addAuthStateListener(mAuthStateListener);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        mFirebaseAuth.removeAuthStateListener(mAuthStateListener);
     }
 
     @Override
